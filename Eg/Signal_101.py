@@ -1,10 +1,8 @@
 # coding=utf-8
 # Signal_101.py
 '''
-
- 所以如果你希望实验并查看基于本范例的修改，
+ 如果你希望实验并查看基于本范例的修改，
  请一定在配置文件yaml中指定为其他 Name
-
 '''
 import numpy as np
 
