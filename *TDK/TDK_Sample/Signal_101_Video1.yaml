@@ -1,0 +1,66 @@
+# Signal_101_Video.yaml
+Name: Signal_101_Video
+Data:
+    eod:
+        ModuleId: Eod
+        inpath: /mnt/ssd/eod
+Macro:
+    capital: 5e7 
+    end: 20131231
+    maxlookback: 100
+    start: 20010101
+# 为保证信号回测效果，TDK平台会保留最近的一段时间
+# 作为Outsample提交信号做二次测试
+# 强烈建议信号编写者在可用的Insample范围内，
+# 自行划分Insample 和Outsample 分别回测
+
+Modules:    # Modules是必须字段，
+    # 给出应用operator的调用路径  
+    #############################################      
+    DECAY:
+        Module: signalop/linear_decay.py
+    POWER:
+        Module: signalop/power.py
+    RANK:
+        Module: signalop/rank.py
+    #############################################
+    IndexMembers:
+        Module: umgr/index_members.py
+    Eod:
+        Module: dmgr/eod_datamanager.py
+# 给出portfolio字段中signalid 对应的signal 信息
+    Signal_101_Video:
+        Module: Signal_101_Video.py
+    TopLiquid:
+        Module: umgr/topliquid_manager.py
+Type: 1
+Turnover: 1     # 调仓计算周期（天）
+StockLock: 0    # 持仓锁定状态  0：不锁定（默认）；
+                # 1：锁定，即持仓比例不随其他股票被动变动
+Portfolio:
+    Signal:
+        signalid: Signal_101_Video
+# SignalOp字段是可选字段，用来使用不同方法调整signal输出权重
+# SignalOp是一个列表，不同的operator顺序会产生不同的结果。
+# 本例中给出部分可用operator，实际中请酌情选用
+
+    #############################################
+    SignalOp:
+        - ModuleId: DECAY   #线性衰减，通常用来降低信号的换手率。
+          days: 3           #衰减强度为3天
+
+        - ModuleId: TOP     #保留输入值的TOP部分
+          percent: 0.2      #保留信号强度最大的20%
+
+        - ModuleId: RANK    #将输入值转化成rank index
+                            #rank之后的NaN值依然为NaN
+
+        - ModuleId: POWER   #将输入值转换为其power运算的结果
+          base: 2           #power base 为2
+
+        - ModuleId: INDNEU  #去除行业间的bias
+    #############################################
+Universe:
+    IndexMembers:
+        index_code: '000905'
+Benchmark: '000905'
