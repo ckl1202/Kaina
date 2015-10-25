@@ -1,5 +1,5 @@
-# Signal_Temp.yaml
-Name: Signal_Temp
+# Signal_Template.yaml
+Name: Signal_Template
 Data:
     eod:
         ModuleId: Eod
@@ -7,13 +7,16 @@ Data:
     factors:
         ModuleId: Eod
         inpath: /mnt/ssd/fundmental/factors
-        names: [BP]
+        names: [BP,TOT_D_MKTASSETS,TOT_D_MKTEQUITY]
+    index:
+        ModuleId: Eod
+        inpath: /mnt/ssd/eod/index
+        names: [OpenPrice,ClosePrice,Volume,HighestPrice,LowestPrice]
 Macro:
     capital: 5e7
-    end: 20091231
+    end: 20131231
     maxlookback: 100
     start: 20010101
-
 Modules:
     DECAY:
         Module: signalop/linear_decay.py
@@ -25,8 +28,8 @@ Modules:
         Module: umgr/index_members.py
     Eod:
         Module: dmgr/eod_datamanager.py
-    Signal_Temp:
-        Module: Signal_Temp.py
+    Signal_Template:
+        Module: Signal_Template.py
     TopLiquid:
         Module: umgr/topliquid_manager.py
 Type: 1
@@ -34,7 +37,9 @@ Turnover: 1
 StockLock: 0
 Portfolio:
     Signal:
-        signalid: Signal_Temp   
+        signalid: Signal_Template
+
+####        
 # SignalOp是一个列表，不同的operator顺序会产生不同的结果。
     SignalOp:
         - ModuleId: DECAY   #线性衰减，通常用来降低信号的换手率。
@@ -50,8 +55,9 @@ Portfolio:
           base: 2           #power base 为2
 
         - ModuleId: INDNEU  #去除行业间的bias
+####
 
 # Universe:
 #    IndexMembers:
 #        index_code: '000001'
-Benchmark: '000300'
+Benchmark: '000001'
