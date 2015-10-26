@@ -7,7 +7,7 @@ Data:
     factors:
         ModuleId: Eod
         inpath: /mnt/ssd/fundmental/factors
-        names: [BP,TOT_D_MKTASSETS,TOT_D_MKTEQUITY]
+        names: [BP,TOT_D_MKTASSETS,TOT_D_MKTEQUITY,REAL_VOL_1YD]
     index:
         ModuleId: Eod
         inpath: /mnt/ssd/eod/index
@@ -16,7 +16,7 @@ Macro:
     capital: 5e7
     end: 20131231
     maxlookback: 100
-    start: 20010101
+    start: 20050101
 Modules:
     DECAY:
         Module: signalop/linear_decay.py
@@ -60,4 +60,4 @@ Portfolio:
 # Universe:
 #    IndexMembers:
 #        index_code: '000001'
-Benchmark: '000001'
+Benchmark: '000300'

@@ -1,5 +1,11 @@
 # coding=utf-8
 # Signal_TI_Framework.py
+# BEST HITHERTO: 2005~2013
+#   AL-SR: 1.27
+#   SR: 2.76
+#   RTN: 5.75
+#   TURNOVER: 0.47
+# Problems: TURNOVER RATE
 
 import numpy as np
 import pandas as pd
@@ -13,11 +19,10 @@ status = 0
 
 class Signal_TI_Framework(Signal):
 
-    def DIFF(self,data):    # 可用状态
+    def DIFF(self,data):
         diff_data = np.empty(data.shape)
         diff_data[1:] = data[1:] - data[:-1]
         return diff_data
-
     def prebatch(self):
         # INDEX
         idx = np.where(self.index.ticker_names=='000300')[0][0]
@@ -54,6 +59,9 @@ class Signal_TI_Framework(Signal):
         self.index_DEA = index_DEA
         self.index_HIST = index_HIST
         # FACTORS
+        F0 = self.factors.REAL_VOL_1YD
+        F0_msk = np.ma.array(F0,mask = np.isnan(F0))
+        F0_z = st.zscore(F0_msk)
         F1 = self.factors.BP
         F1_msk = np.ma.array(F1,mask = np.isnan(F1))
         F1_z = st.zscore(F1_msk)
@@ -65,6 +73,7 @@ class Signal_TI_Framework(Signal):
         F3_z = st.zscore(F3_msk)
         self.fscore = 1.5*F1_z + F2_z + 0.5*F3_z
         # fscore! to HELP DISTINGUISH between fscore and percentagescore
+        self.F0 = F0
         self.F1 = F1
         self.F2 = F2
         self.F3 = F3
@@ -104,41 +113,39 @@ class Signal_TI_Framework(Signal):
         # Ticker_names
         self.names = self.eod.ticker_names
 
-
-    ##### TI FUNCTIONS #####
-    ### Complete Version ###
     def BULLDULL(self,di):
-        # 牛入盘整
-        if (self.index_J[di-1] > 85 and self.index_JD[di-1] < -30) 
-        or (self.index_DIFD[di-1] < -20) : # J急跌或者DIF连续两天急跌
+        # self.protected(self,di)
+        # MACD FML
+        if self.index_DIF[di-1] < 0 or ( self.index_DIF[di-1] > 0 and self.index_DIF[di-1] < self.index_DEA[di-1] -25 ):
             return True
-        pass
-    def BEARDULL(self,di):
-        # 熊入盘整
-        # KDJ 地位金叉
-        if self.index_J[di-1] > self.index_D[di-1] and 
+        elif (self.index_DIF[di-1] < self.index_DEA[di-1] and self.index_DIFD[di-1] < -20): 
+            return True
+        # KDJ FML
+        # elif self.index_JD[di-1] < -40 --- NOT GOOD
+        elif self.index_D[di-1] > 85 and (self.index_J[di-1] < self.index_D[di-1]-0 or self.index_JD[di-1] < -20):
+            return True
+        elif (self.index_DIF[di-1] < self.index_DEA[di-1]-5 and self.index_DIFD[di-1] < -20): 
             return True
     def DULLBULL(self,di):
-        # 激活牛市
-        # 60日均线向上且出现放量
+        # self.resume(self,di)
         uptrend = 5
-        if self.index_ma_diff[di-1] > uptrend and self.index_vol[di-1] > 1.2 * self.index_volma[di-1] :
+        if (self.index_DIF[di-1] > 0 and self.index_DIFD[di-1] > 5):
+            # DIF shows upper trend
+            return True
+        elif self.index_ma_diff[di-1] > uptrend and self.index_vol[di-1] > 1.2 * self.index_volma[di-1] :
+            # 60ma shows upper trend and the volume increase significantly.
+            return True
+        elif self.index_D[di-1] < 40 and (self.index_J[di-1] > self.index_D[di-1] or self.index_JD[di-1] > 25):
+            return True
+        elif (self.index_DIF[di-1] > self.index_DEA[di-1] and self.index_DIFD[di-1] > 20):
+            return True
+    def BEARDULL(self,di):
+        if self.index_J[di-1] > self.index_D[di-1]:
             return True
     def DULLBEAR(self,di):
-        # 激活熊市
-        # 60日均线向下且明显缩量
         downtrend = -10
         if self.index_ma_diff[di-1] < downtrend and self.index_vol[di-1] < 0.8 * self.index_volma[di-1]:
             return True
-
-    ### Simplified Version ###
-    def protected(self,di):
-        if self.index_DIF[di-1] < 0: # and self.index_DIFD[di-1] < 0:
-            return True
-    def resume(self,di):
-        if self.index_DIF[di-1] > 0: # and self.index_DIFD[di-1] > 5:
-            return True
-    ########################
 
     def generate(self, di):
         ### MANDATORY SETTING ###
@@ -146,7 +153,7 @@ class Signal_TI_Framework(Signal):
         last_wgt = self.weights[-1]
         names = self.names
 
-        ### TI commands ###
+        ### TI COMMANDS ###
         global status
         if status == 0:
             if self.DULLBULL(di):
@@ -159,72 +166,79 @@ class Signal_TI_Framework(Signal):
         if status == -1:
             if self.BEARDULL(di):
                 status = 0
-        # Simplified
-        if status = 0:
-            if self.resume(di):
-                status = 1
-        if status = 1:
-            if self.protected(di):
-                status = 0
-
-        ### self. ID ###
-        names = self.names
-        rtn = self.rtn[di-1,:].T
-        rtn2 = (self.CD / self.Close)[di-1,:].T
+        
+        ### Transfer self.DATA ###
+        ### KDJ ###
+        K = self.K[di-1,:].T
+        D = self.D[di-1,:].T
+        J = self.J[di-1,:].T
+        JD = self.JD[di-1,:].T
+        KD = self.KD[di-1,:].T
+        HISTD = self.HISTD[di-2:di,:].T
+        ### Close and stuff ###
+        close = self.Close[di-4:di-2,:] # Close Price of all stocks
+        diff2 = self.CD[di-2:di] + self.CD[di-3:di-1]
+        rtn2 = (diff2/close).T
+        CD = self.CD[di-1,:].T
+        # 2 days' return FOR STOPLOSS
+        ### Factors ###
+        F0 = self.F0[di-1,:].T
+        F1 = self.F1[di-1,:].T
+        F2 = self.F2[di-1,:].T
+        F3 = self.F3[di-1,:].T
+        fscore = self.fscore[di-1].T # Percent's score based on F1 (Altenatively F2,F3,fscore)
+        score = st.scoreatpercentile(F1[~np.isnan(F1)],90)
+        volscore = st.scoreatpercentile(F0[~np.isnan(F0)],90)
+        
+        ### Transfer self.index_DATA ###
+        ### index_item can be used directly in TI FUNCTIONS###
+        ################################
 
         if status == 0:
             for ix,ticker in enumerate(names):
-                w = 0.
-                # Internally defined
+                if J[ix] < -10 and JD[ix] > 0:
+                    # Strong reverse in ext lower position
+                    # IT DOESN'T WOOOOOOOOOORK!!!
+                    w = 100.-J[ix]
+                elif w > 0 :
+                    w = 0
                 r.append(w)
         if status == 1:
             for ix,ticker in enumerate(names):
                 w = last_wgt[ix]
-                if J[ix] < 2 or (J[ix] < 25 and J[ix] > D[ix]):
-                    w = 100.-J[ix]
-                elif J[ix] > 93 or (J[ix] > 75 and J[ix] < D[ix]):
+                if rtn2[ix][0] < -0.097 or rtn2[ix][1] > 0.11:
                     w = 0.
+                    # SL for every stock
+                else:
+                    #############################
+                    ### CORE TRADING STRATEGY ###
+                    #############################
+                    ### PICK ONE ~ ###
+
+                    ### FUNDAMENTAL SCORING ###
+                    if ticker >= score:
+                        w = np.exp(fscore[ix])
+                    else:
+                        w = 0.
+
+                    ### WAVE TRADING ###
+                    ### PERFECT EDITION ###
+                    if J[ix] < 2 or (J[ix] < 25 and J[ix] > D[ix]):
+                        w = 100.-J[ix]
+                    elif J[ix] > 93 or (J[ix] > 75 and J[ix] < D[ix]):
+                        w = 0.
+
+                    ### MACD HIST REVERSE ###
+                    # NOT GOOD ENOUGH / ALPHA -0.33
+                    if HISTD[ix][0] > 0 and HISTD[ix][1] < 0 and KD[ix] > 0:
+                        w = 100. -J[ix]
+                    if HISTD[ix][1] > 0 and HISTD[ix][0] < 0 and KD[ix] < 0:
+                        w = 0
+
                 r.append(w)
                 # if self.index_DIF[di-1] < 5 :
-                # 对熊市的反应比均线快 抓反弹效果也好些 但是对市场急跌没有防御力
-                # 07年05月～09月以及10月～11月 需要补充其它保护机制
-
-        ####################
-        # DULLLLLLLLLLLLLL #
-        ####################
-        if status = 0:
-            for ix,ticker in enumerate(names):
-                w = last_wgt[ix]
-                if rtn2[ix] < -0.095:
-                    w = 0
-                elif J[ix] < 10 or (J[ix] < 25 and J[ix] > D[ix]):
-                    w = 100.-J[ix]
-                elif J[ix] > 93:
-                    w = 0
-                r.append(w)
-        ############################
-        # BULLLLLLLLLLLLLLLLLLLLLL #
-        ############################
-        if status = 1:
-            for ix,ticker in enumerate(names):
-                w = last_wgt[ix]
-                if J[ix] < -5:
-                    w = 100.-J[ix]
-        
-        ############################
-        # BEARRRRRRRRRRRRRRRRRRRRR #
-        ############################
-        if status = -1:
-        F1 = self.F1[di-1,:].T
-        s = self.s[di-1]
-        score = st.scoreatpercentile(F1[~np.isnan(F1)], 70)
-            for ix, ticker in enumerate(self.names):
-                w = last_wgt[ix]
-                if ticker >= score:
-                    w = np.exp(s[ix])
-                else:
-                    w = 0.
-                r.append(w)
+                # No offend power towards RAPID RELEASE 
+                # Additional ST required
 
         ### RETURN A NDARRAY ###
         ### MANDATORY ###

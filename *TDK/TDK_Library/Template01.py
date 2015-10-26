@@ -10,12 +10,12 @@ from simlib.signal.lib import *
 status = 0
 
 class Signal_Template(Signal):
-
+    
     def DIFF(self,data):    # 可用状态
         diff_data = np.empty(data.shape)
         diff_data[1:] = data[1:] - data[:-1]
         return diff_data
-
+        
     def prebatch(self):
         # INDEX
         idx = np.where(self.index.ticker_names=='000300')[0][0]
@@ -33,6 +33,7 @@ class Signal_Template(Signal):
         self.index_CD = self.DIFF(index_Close)
         self.index_Volume = index_Volume
         self.index_ma = index_ma
+        # INDEX CLOSE PRICE / CLOSE MA / VOLUME MA / CLOSE DIFF / MA DIFF
         # INDEX_KDJ
         index_K,index_D = ta.STOCHF(index_High, index_Low, index_Close, fastk_period=5, fastd_period=3, fastd_matype=0)
         index_J = 3*index_K-2*index_D
@@ -51,6 +52,9 @@ class Signal_Template(Signal):
         self.index_DEA = index_DEA
         self.index_HIST = index_HIST
         # FACTORS
+        F0 = self.factors.REAL_VOL_1YD
+        F0_msk = np.ma.array(F0,mask = np.isnan(F0))
+        F0_z = st.zscore(F0_msk)
         F1 = self.factors.BP
         F1_msk = np.ma.array(F1,mask = np.isnan(F1))
         F1_z = st.zscore(F1_msk)
@@ -62,6 +66,7 @@ class Signal_Template(Signal):
         F3_z = st.zscore(F3_msk)
         self.fscore = 1.5*F1_z + F2_z + 0.5*F3_z
         # fscore! to HELP DISTINGUISH between fscore and percentagescore
+        self.F0 = F0
         self.F1 = F1
         self.F2 = F2
         self.F3 = F3
@@ -100,42 +105,101 @@ class Signal_Template(Signal):
         self.BBL = BBL
         # Ticker_names
         self.names = self.eod.ticker_names
-
-
+        
+    def BULLDULL(self,di):
+        # self.protected(self,di)
+        # MACD FML
+        if self.index_DIF[di-1] < 6 or ( self.index_DIF[di-1] > 0 and self.index_DIF[di-1] < self.index_DEA[di-1] -25 ):
+            return True
+        elif (self.index_DIF[di-1] < self.index_DEA[di-1] -5 and self.index_DIFD[di-1] < -25): 
+            return True
+        # KDJ FML
+        # elif self.index_JD[di-1] < -40 --- NOT GOOD
+        elif self.index_D[di-1] > 85 and (self.index_J[di-1] < self.index_D[di-1]-0 or self.index_JD[di-1] < -20):
+            return True
+    def DULLBULL(self,di):
+        # self.resume(self,di)
+        # Activation Algo sucks
+        if self.index_DIF[di-1] > 0 and self.index_DIFD[di-1] > -20: 
+            return True
+        elif self.index_D[di-1] < 35 and (self.index_J[di-1] > self.index_D[di-1] or self.index_JD[di-1] > 25):
+            return True
+        elif (self.index_DIF[di-1] > self.index_DEA[di-1] and self.index_DIFD[di-1] > 20):
+            return True
+            
+    def DULLBEAR(self,di):
+        return False
+    def BEARDULL(self,di):
+        return False
+            
     def generate(self,di):
+        ### MANDATORY SETTING ###
         r = []
         last_wgt = self.weights[-1]
         names = self.names
-        # Mandatory setting
-        diff2 = self.CD[di-2:di] + self.CD[di-3:di-1]
-        CD = self.CD[di-1,:].T
         
-        index_ST = self.index_Close - self.index_ma
+        ### TI COMMANDS ###
+        global status
+        if status == 0:
+            if self.DULLBULL(di):
+                status = 1
+        if status == 1:
+            if self.BULLDULL(di):
+                status = 0
         
-        
+        ### Transfer self.DATA ###
+        ### KDJ ###
         K = self.K[di-1,:].T
         D = self.D[di-1,:].T
         J = self.J[di-1,:].T
         JD = self.JD[di-1,:].T
-        close = self.Close[di-4:di-2,:]
+        KD = self.KD[di-1,:].T
+        HISTD = self.HISTD[di-2:di,:].T
+        ### Close and stuff ###
+        close = self.Close[di-4:di-2,:] # Close Price of all stocks
+        diff2 = self.CD[di-2:di] + self.CD[di-3:di-1]
         rtn2 = (diff2/close).T
-        
-        # Factors' score
+        CD = self.CD[di-1,:].T
+        # 2 days' return FOR STOPLOSS
+        ### Factors ###
+        F0 = self.F0[di-1,:].T
         F1 = self.F1[di-1,:].T
-        fscore = self.fscore[di-1].T
+        F2 = self.F2[di-1,:].T
+        F3 = self.F3[di-1,:].T
+        fscore = self.fscore[di-1].T # Percent's score based on F1 (Altenatively F2,F3,fscore)
+        score = st.scoreatpercentile(F1[~np.isnan(F1)],90)
+        volscore = st.scoreatpercentile(F0[~np.isnan(F0)],90)
         
-        # Percent's score based on F1 (Altenatively F2,F3,fscore)
-        score = st.scoreatpercentile(F1[~np.isnan(F1)],10)
-
-        for ix, ticker in enumerate(names):
-            w = last_wgt[ix]
-            
-            if J[ix] < 2 or (J[ix] < 25 and J[ix] > D[ix] ):
-                w = 100.-J[ix]
-            elif J[ix] > 93:
-                w = 0
-            r.append(w)
-
+        ### Transfer self.index_DATA ###
+        ### index_item can be used directly in self.protected() ###
+        
+        ### DULL ###
+        if status == 0:
+            for ix,ticker in enumerate(names):
+                w = 0.
+                r.append(w)
+        ### BEAR ###
+        if status == -1:
+            for ix,ticker in enumerate(names):
+                w = 0.
+                r.append(w)
+        ### BULL ###
+        if status == 1:
+            for ix,ticker in enumerate(names):
+                w = last_wgt[ix]
+                if rtn2[ix][0] < -0.097 or rtn2[ix][1] > 0.11:
+                    w = 0.
+                    # SL for every stock
+                else:
+                    #############################
+                    ### CORE TRADING STRATEGY ###
+                    #############################
+                    ### WAVE TRADING ###
+                    if J[ix] < 2 or (J[ix] < 25 and J[ix] > D[ix]):
+                        w = 100.-J[ix]
+                    elif J[ix] > 93 or (J[ix] > 75 and J[ix] < D[ix]):
+                        w = 0.
+                r.append(w)
         res = np.array(r)
         return res    
 
