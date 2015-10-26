@@ -91,55 +91,6 @@ class library(Signal):
         # STATUS
         self.status = 0
 
-	def BullFlat(self,di):
-		# 重要的保护机制
-		# 收益率序列特性
-		# MACD 高位快速转向
-		self.index_DIFD < 0
-		self.index_J < D
-		self.index_JD < 0
-		self.index_DD > uptrend
-		return True
-	def FlatBull(self,di):
-		# 由平台整理位置确认形成牛市
-		# 要求严 要求放量大于过去几日的平均的几倍才叫放量
-		# 经验上看效果不错 因为是长期趋势识别 总会有出现的时候
-		uptrend = 1
-		vol_up = 1.2
-		tp = 5 # timeperiod
-		if self.index_60_ma[di-1:di-tp].mean() > uptrend and index_vol > index_vol[di-1:di-tp].mean()*vol_up:
-		# 简单的横盘转上升趋势判定 60日均线的斜率平均要大于预定值 且出现放量 认为上升通道建立
-		# 是否会误判 上升趋势转横盘的保护机制难写
-		# 在熊市末尾反弹的时候
-			return True
-	def FlatBear(self,di):
-		downtrend = -1
-		vol_down = 0.8
-		tp = 5 # timeperiod
-		if index_60_ma[di-1:di-tp].mean() < downtrend:
-		# 盘整状态转熊市用量能判断不准
-		return True
-	def BearFlat(self,di):
-		DIFD > 0
-		DEAD < 0
-		# KDJ 低位金叉
-		return True
-
-	def StatusId(self,status,di):
-		# Identify the status transfer.
-		if status = 1:
-			if self.BullFlat(di):
-				status = 0
-		if status = 0:
-			if self.FlatBull(di):
-				status = 1
-			if self.FlatBear(di):
-				status = -1
-		if status = -1:
-			if self.BearFlat(di):
-				status = 0
-		return status
-		# Independent methods for trend identification
 	def generate(self,di):
 
 		r = []

@@ -55,8 +55,6 @@ class Signal_Temp(Signal):
         # Diff
         self.diff = index_close - index_ma
         self.diff2 = self.DIFF(Close)
-        diff2 = np.empty(Close.shape)
-        diff2[1:,:] = Close[1:,:] - Close[:-1,:]
         self.diff2 = diff2
     
         self.close = Close
@@ -77,14 +75,17 @@ class Signal_Temp(Signal):
         names = self.names
         # diff = self.diff[di-2:di]
         diff = self.diff[di-2:di] + self.diff[di-3:di-1]
+        # 指数close－ma 两天的加和
         # 过去两天的变动
         K = self.K[di-1,:].T
         D = self.D[di-1,:].T
         J = self.J[di-1,:].T
         JD = self.JD[di-1,:].T
+
         diff2 = self.diff2[di-1,:].T
         close = self.close
         rtn2 = diff2/close[di-3,:].T
+        # rtn2是昨天的跌除以大前天的值
         
         # 接受factor
         F1 = self.F1[di-1,:].T
