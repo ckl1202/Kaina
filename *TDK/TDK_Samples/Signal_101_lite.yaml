@@ -1,0 +1,60 @@
+# Signal_101_lite.yaml
+Name: Signal_101_lite
+Macro:
+    capital: 5e7
+    end: 20131231
+    maxlookback: 100
+    start: 20010101
+Universe:
+    IndexMembers:
+        index_code: '000905'
+Benchmark: '000905'
+Data:
+    eod:
+        ModuleId: Eod
+        inpath: /mnt/ssd/eod
+    ###### 有问题
+    factors:
+        ModuleId: Eod
+        inpath: /mnt/ssd/fundmental/factors
+        names: [YOY_EPS_G,BP]
+    index:
+        ModuleId: Eod
+        inpath: /mnt/ssd/eod/index
+        names: [OpenPrice,ClosePrice,Volume]
+Modules:      
+    DECAY:
+        Module: signalop/linear_decay.py
+    POWER:
+        Module: signalop/power.py
+    RANK:
+        Module: signalop/rank.py
+
+    IndexMembers:
+        Module: umgr/index_members.py
+    Eod:
+        Module: dmgr/eod_datamanager.py
+    Signal_101_lite:
+        Module: Signal_101_lite.py
+    TopLiquid:
+        Module: umgr/topliquid_manager.py
+Type: 1
+Turnover: 1
+StockLock: 0
+Portfolio:
+    Signal:
+        signalid: Signal_101_lite
+    SignalOp:
+        - ModuleId: DECAY   #线性衰减，通常用来降低信号的换手率。
+          days: 3           #衰减强度为3天
+
+        - ModuleId: TOP     #保留输入值的TOP部分
+          percent: 0.2      #保留信号强度最大的20%
+
+        - ModuleId: RANK    #将输入值转化成rank index
+                            #rank之后的NaN值依然为NaN
+
+        - ModuleId: POWER   #将输入值转换为其power运算的结果
+          base: 2           #power base 为2
+
+        - ModuleId: INDNEU  #去除行业间的bias

@@ -1,11 +1,13 @@
 # coding=utf-8
-# Signal_TI_Framework.py
-# BEST HITHERTO: 2005~2013
-#   AL-SR: 1.27
-#   SR: 2.76
-#   RTN: 5.75
-#   TURNOVER: 0.47
-# Problems: TURNOVER RATE
+# Signal_Framework.py
+'''
+BEST HITHERTO (2005~2013) : 
+    AL-SR: 1.27
+    SR: 2.76
+    RTN: 5.75
+    TURNOVER: 0.47
+
+'''
 
 import numpy as np
 import pandas as pd
@@ -18,13 +20,20 @@ from simlib.signal.lib import *
 
 status = 0
 
-class Signal_TI_Framework(Signal):
+class Signal_Framework(Signal):
 
+    def LOGDIFF(self.data):
+        logdiff_data = np.empty(data.shape)
+        logdiff_data[1:] = np.log(data[1:] - data[:-1])/data[:-1]
+        return logdiff_data
     def DIFF(self,data):
         diff_data = np.empty(data.shape)
         diff_data[1:] = data[1:] - data[:-1]
         return diff_data
+
     def prebatch(self):
+        ### DATA PREBATCH ###
+
         # INDEX
         idx = np.where(self.index.ticker_names=='000300')[0][0]
         index_Close = self.index.ClosePrice[:,idx]
@@ -59,6 +68,7 @@ class Signal_TI_Framework(Signal):
         self.index_DIF = index_DIF
         self.index_DEA = index_DEA
         self.index_HIST = index_HIST
+
         # FACTORS
         F0 = self.factors.REAL_VOL_1YD
         F0_msk = np.ma.array(F0,mask = np.isnan(F0))
@@ -80,12 +90,14 @@ class Signal_TI_Framework(Signal):
         self.F3 = F3
         # For sorting the tickers
         # Weighted average of factors - Multi-factor Model
+
         # RAW DATA
         Close = self.eod.ClosePrice
         High = self.eod.HighestPrice
         Low = self.eod.LowestPrice
         self.CD = self.DIFF(Close)
         self.Close = Close
+
         # KDJ
         K,D = self.function_wrapper('STOCHF',High,Low,Close,fastk_period=5,fastd_period=3,fastd_matype=0)
         J = 3*K-2*D
@@ -95,6 +107,7 @@ class Signal_TI_Framework(Signal):
         self.K = K
         self.D = D
         self.J = J
+
         # MACD
         DIF,DEA,HIST = self.function_wrapper("MACD", Close, fastperiod=12, slowperiod=26,signalperiod=9)
         self.DIFD = self.DIFF(DIF)
@@ -103,6 +116,7 @@ class Signal_TI_Framework(Signal):
         self.DIF = DIF
         self.DEA = DEA
         self.HIST = HIST
+
         # BB
         BBU,BBM,BBL = self.function_wrapper('BBANDS', Close, timeperiod=5, nbdevup=2, nbdevdn=2, matype=0)
         self.BBUD = self.DIFF(BBU)
@@ -111,9 +125,10 @@ class Signal_TI_Framework(Signal):
         self.BBU = BBU
         self.BBM = BBM
         self.BBL = BBL
+
         # Ticker_names
         self.names = self.eod.ticker_names
-
+        self.group = self.all.group
     def svm_predict(self,data,di):
         # Imput a dataframe including factors for svm
         x =
@@ -161,6 +176,7 @@ class Signal_TI_Framework(Signal):
         r = []
         last_wgt = self.weights[-1]
         names = self.names
+        group = self.group
 
         ### TI COMMANDS ###
         global status
@@ -218,6 +234,7 @@ class Signal_TI_Framework(Signal):
                 if rtn2[ix][0] < -0.097 or rtn2[ix][1] > 0.11:
                     w = 0.
                     # SL for every stock
+                    # -9.7%///OPTIMIZED
                 else:
                     #############################
                     ### CORE TRADING STRATEGY ###
@@ -234,6 +251,16 @@ class Signal_TI_Framework(Signal):
                     ### PERFECT EDITION ###
                     if J[ix] < 2 or (J[ix] < 25 and J[ix] > D[ix]):
                         w = 100.-J[ix]
+                        # 100.///OPTIMIZED
+                        # w = 100.-J[ix] -1.17-2.57
+                        # w = 50.-J[ix] -1.15-2.56
+                        # w = 10.-J[ix] -0.93-2.34
+                        # w = s[ix]*(10.-J[ix]) - 0.64-2.53
+                        # w = s[ix]*(100.-J[ix])/80 - 0.8-2.24
+                        # 1.5 乘数用于降低权重差 BP不加入权且去尾10% 1.2-2.6
+                        # 不用BP 乘数1 换手率高 后期可以加入其它技术指标
+                        # 1.3 1.2－2.62
+                        # 最优乘数和选股范围有关
                     elif J[ix] > 93 or (D[ix] > 90 and J[ix] < D[ix]-10) or JD[ix] < -35:
                         w = 0.
 
@@ -241,10 +268,10 @@ class Signal_TI_Framework(Signal):
                     # NOT GOOD ENOUGH / ALPHA -0.33
                     if HISTD[ix][0] > 0 and HISTD[ix][1] < 0 and KD[ix] > 0:
                         w = 100. -J[ix]
-                    if HISTD[ix][1] > 0 and HISTD[ix][0] < 0 and KD[ix] < 0:
+                    elif HISTD[ix][1] > 0 and HISTD[ix][0] < 0 and KD[ix] < 0:
                         w = 0
 
-                r.append(w)
+                    r.append(w)
                 # if self.index_DIF[di-1] < 5 :
                 # No offend power towards RAPID RELEASE 
                 # Additional ST required
@@ -254,4 +281,4 @@ class Signal_TI_Framework(Signal):
         res = np.array(r)
         return res 
 
-signal = Signal_TI_Framework
+signal = Signal_Framework
