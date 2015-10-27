@@ -10,6 +10,7 @@
 import numpy as np
 import pandas as pd
 import sklearn as sk
+from sklearn import svm
 import talib as ta
 import scipy.stats as st
 from simlib.signal.base import Signal
@@ -112,6 +113,14 @@ class Signal_TI_Framework(Signal):
         self.BBL = BBL
         # Ticker_names
         self.names = self.eod.ticker_names
+
+    def svm_predict(self,data,di):
+        # Imput a dataframe including factors for svm
+        x =
+        y =
+        clf = svm.SVC()
+        clf.fit(x,y)
+        clf.predict()
 
     def BULLDULL(self,di):
         # self.protected(self,di)
@@ -225,7 +234,7 @@ class Signal_TI_Framework(Signal):
                     ### PERFECT EDITION ###
                     if J[ix] < 2 or (J[ix] < 25 and J[ix] > D[ix]):
                         w = 100.-J[ix]
-                    elif J[ix] > 93 or (J[ix] > 75 and J[ix] < D[ix]):
+                    elif J[ix] > 93 or (D[ix] > 90 and J[ix] < D[ix]-10) or JD[ix] < -35:
                         w = 0.
 
                     ### MACD HIST REVERSE ###
