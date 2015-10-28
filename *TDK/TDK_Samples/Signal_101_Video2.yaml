@@ -1,0 +1,77 @@
+# Signal_101_Video2.yaml
+Name: Signal_101_Video2
+Data:
+    eod:
+        ModuleId: Eod
+        inpath: /mnt/ssd/eod
+    index:
+        ModuleId: Eod
+        inpath: /mnt/ssd/eod/index
+        names:[OpenPrice,ClosePrice,Volume]
+        # index一定要声明open和close
+    factors:
+        ModuleId: Eod
+        inpath: /mnt/ssd/fundamental/factors
+        names:[YOY_EPS_G,BP]
+        # 声明了两个基本面数据
+
+Macro:
+    capital: 5e7
+    end: 20131231
+    maxlookback: 100
+    start: 20010101
+
+Modules:  
+    #############################################      
+    DECAY:
+        Module: signalop/linear_decay.py
+    POWER:
+        Module: signalop/power.py
+    RANK:
+        Module: signalop/rank.py
+    #############################################
+    IndexMembers:
+        Module: umgr/index_members.py
+    Eod:
+        Module: dmgr/eod_datamanager.py
+# 给出portfolio字段中signalid 对应的signal 信息
+    Signal_101_Video2:
+        Module: Signal_101_Video2.py
+    TopLiquid:
+        Module: umgr/topliquid_manager.py
+Type: 1
+Turnover: 1     # 调仓计算周期（天）
+StockLock: 0    # 持仓锁定状态  0：不锁定（默认）；
+                # 1：锁定，即持仓比例不随其他股票被动变动
+Portfolio:
+    Signal:
+        signalid: Signal_101_Video2
+# SignalOp字段是可选字段，用来使用不同方法调整signal输出权重
+# SignalOp是一个列表，不同的operator顺序会产生不同的结果。
+# 本例中给出部分可用operator，实际中请酌情选用
+
+
+
+    #############################################
+    SignalOp:
+        - ModuleId: DECAY   #线性衰减，通常用来降低信号的换手率。
+          days: 3           #衰减强度为3天
+
+        - ModuleId: TOP     #保留输入值的TOP部分
+          percent: 0.2      #保留信号强度最大的20%
+
+        - ModuleId: RANK    #将输入值转化成rank index
+                            #rank之后的NaN值依然为NaN
+
+        - ModuleId: POWER   #将输入值转换为其power运算的结果
+          base: 2           #power base 为2
+
+        - ModuleId: INDNEU  #去除行业间的bias
+    #############################################
+
+
+# Universe:
+#    IndexMembers:
+#        index_code: '000905'
+# 全部范围可以交易
+Benchmark: '000905'
